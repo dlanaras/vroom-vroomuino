@@ -165,7 +165,7 @@ void loop()
 
         String clientRequests = client.readStringUntil('\r');
 
-        Serial.print(clientRequests + "\n here we go");
+        //Serial.print(clientRequests + "\n here we go");
         int speedIndex = clientRequests.indexOf("/speed");
         int rotationIndex = clientRequests.indexOf("/rotation/");
         //Serial.println("\n");
@@ -173,22 +173,22 @@ void loop()
 
         if (speedIndex != -1)
         {
-          Serial.println("got in here");
+          //Serial.println("got in here");
           String actualSpeedStringValue = clientRequests.substring(speedIndex + 7);
-          Serial.println(actualSpeedStringValue);
+          //Serial.println(actualSpeedStringValue);
           actualSpeedStringValue = actualSpeedStringValue.substring(0, actualSpeedStringValue.indexOf(" "));
-          Serial.println(actualSpeedStringValue);
-          int speedValue = actualSpeedStringValue.toInt();
 
+          //Serial.println(actualSpeedStringValue);
+          int speedValue = actualSpeedStringValue.toInt();
+          
+          Serial.println("speed value is:");
           Serial.println(speedValue);
 
-          /*if (speedValue >= -255 && speedValue <= 255)
+          if (speedValue >= -255 && speedValue <= 255)
           {
-            speed = speedValue;*/
-          //speedServo.write(speedValue);
-          speedServo.write(91);
-          rotationServo.write(91);
-          //}
+            speed = speedValue;
+            speedServo.write(speedValue);
+          }
         }
 
         if (rotationIndex != -1)
@@ -200,12 +200,11 @@ void loop()
 
           int rotationValue = stinger.toInt();
 
-          /*if (rotationValue >= -255 && rotationValue <= 255)
+          if (rotationValue >= -255 && rotationValue <= 255)
           {
             rotation = rotationValue;
             rotationServo.write(rotation);
-          }*/
-          rotationServo.write(rotationValue);
+          }
         }
 
       }
