@@ -20,6 +20,7 @@
 #include <WiFiNINA.h>
 #include <Servo.h>
 #include <secret.h>
+#include <Ultrasonic.h>
 ///////please enter your sensitive data in the Secret tab/arduino_secrets.h
 char ssid[] = "zenbook"; // your network SSID (name)
 char pass[] = laurinsSecurePassword;  // your network password (use for WPA, or use as key for WEP)
@@ -32,6 +33,10 @@ Servo rotationServo;
 
 int status = WL_IDLE_STATUS;
 WiFiServer server(80);
+Ultrasonic ultrasonicFront(13);
+Ultrasonic ultrasonicBack(12);
+int frontDistance;
+int backDistance;
 
 void setup()
 {
@@ -79,6 +84,27 @@ void setup()
 
 void loop()
 {
+  frontDistance = ultrasonicFront.read();
+  backDistance = ultrasonicBack.read();
+
+  if(frontDistance < 25){
+    int minSpeed = 60;
+    int maxSpeed = 92;
+
+    speed = map(frontDistance, 0, 25, minSpeed, maxSpeed);
+    Serial.println("going backwards");
+    Serial.println(speed);
+    speedServo.write(speed);
+
+  } else if (backDistance < 25) {
+    int minSpeed = 92;
+    int maxSpeed = 135;
+
+    speed = map(backDistance, 0, 25, minSpeed, maxSpeed);
+    Serial.println("going forward");
+    Serial.println(speed);
+    speedServo.write(speed);
+  }
 
   WiFiClient client = server.available(); // listen for incoming clients
 
