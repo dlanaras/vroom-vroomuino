@@ -19,9 +19,10 @@
 #include <SPI.h>
 #include <WiFiNINA.h>
 #include <Servo.h>
+#include <secret.h>
 ///////please enter your sensitive data in the Secret tab/arduino_secrets.h
-char ssid[] = "VROOM VROOM FOR FREE NOW!"; // your network SSID (name)
-char pass[] = "VROOMVROOMTHISISYOURDOOM";  // your network password (use for WPA, or use as key for WEP)
+char ssid[] = "zenbook"; // your network SSID (name)
+char pass[] = laurinsSecurePassword;  // your network password (use for WPA, or use as key for WEP)
 int keyIndex = 0;
 int speed = 0;
 int rotation = 0;
@@ -31,21 +32,18 @@ Servo rotationServo;
 
 int status = WL_IDLE_STATUS;
 WiFiServer server(80);
-void printWiFiStatus();
 
 void setup()
 {
+  //attach speedservo to port 9
   speedServo.attach(9);
-  rotationServo.attach(10);
-  // Initialize serial and wait for port to open:
-  Serial.begin(9600);
-  while (!Serial)
-  {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
+  //attach rotationservo to port 11
+  rotationServo.attach(11);
 
-  Serial.println("Access Point Web Server");
+  Serial.begin(9600); // initialize serial communication
 
+  speedServo.write(97);
+  rotationServo.write(97);
   // check for the WiFi module:
   if (WiFi.status() == WL_NO_MODULE)
   {
@@ -60,54 +58,27 @@ void setup()
   {
     Serial.println("Please upgrade the firmware");
   }
+  speedServo.write(91);
 
-  // by default the local IP address will be 192.168.4.1
-  // you can override it with the following:
-  // WiFi.config(IPAddress(10, 0, 0, 1));
-
-  // print the network name (SSID);
-  Serial.print("Creating access point named: ");
-  Serial.println(ssid);
-
-  // Create open network. Change this line if you want to create an WEP network:
-  status = WiFi.beginAP(ssid, pass);
-  if (status != WL_AP_LISTENING)
+  // attempt to connect to WiFi network:
+  while (status != WL_CONNECTED)
   {
-    Serial.println("Creating access point failed");
-    // don't continue
-    while (true)
-      ;
+    Serial.print("Attempting to connect to Network named: ");
+    Serial.println(ssid); // print the network name (SSID);
+
+    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+    status = WiFi.begin(ssid, pass);
+    // wait 10 seconds for connection:
+    delay(10000);
   }
-
-  // wait 10 seconds for connection:
-  delay(5000);
-
-  // start the web server on port 80
-  server.begin();
-
-  // you're connected now, so print out the status
-  printWiFiStatus();
+  speedServo.write(0);
+  rotationServo.write(0);
+  Serial.println(WiFi.localIP());
+  server.begin(); // start the web server on port 80
 }
 
 void loop()
 {
-  // compare the previous status to the current status
-  if (status != WiFi.status())
-  {
-    // it has changed update the variable
-    status = WiFi.status();
-
-    if (status == WL_AP_CONNECTED)
-    {
-      // a device has connected to the AP
-      Serial.println("Device connected to AP");
-    }
-    else
-    {
-      // a device has disconnected from the AP, and we are back in listening mode
-      Serial.println("Device disconnected from AP");
-    }
-  }
 
   WiFiClient client = server.available(); // listen for incoming clients
 
@@ -118,7 +89,6 @@ void loop()
     String currentLine = "";      // make a String to hold incoming data from the client
     while (client.connected())
     {                        // loop while the client's connected
-      delayMicroseconds(10); // This is required for the Arduino Nano RP2040 Connect - otherwise it will loop so fast that SPI will never be served.
       if (client.available())
       {                         // if there's bytes to read from the client,
         char c = client.read(); // read a byte, then
@@ -139,11 +109,11 @@ void loop()
             client.print("<style>.vertigo { position:absolute; -webkit-transform: rotate(270deg); top:100px; } </style>");
 
             // the content of the HTTP response follows the header:
-            client.print("LeftRightometer <input class='vertigo' type='range' min='85' max='100' value='95'></input><br>");
-            client.print("Consumed Speed <input class='horizonto' type='range' min='85' max='100' value='95'></input><br>");
+            client.print("LeftRightometer <input class='vertigo' type='range' min='85' max='100' value='94'></input><br>");
+            client.print("Consumed Speed <input class='horizonto' type='range' min='60' max='135' value='92'></input><br>");
 
-            char syncSpeedJS[] = "<script>async function syncSpeed(speed) { let response = await fetch('http://192.168.4.1/speed/' + speed); if(!response.ok) console.error(' HTTP - Error : ' + response.status); }</script>";
-            char syncRotationJS[] = "<script>async function syncRotation(rotation) { let response = await fetch('http://192.168.4.1/rotation/' + rotation); if(!response.ok) console.error(' HTTP - Error : ' + response.status);}</script>";
+            char syncSpeedJS[] = "<script>async function syncSpeed(speed) { let response = await fetch('/speed/' + speed); if(!response.ok) console.error(' HTTP - Error : ' + response.status); }</script>";
+            char syncRotationJS[] = "<script>async function syncRotation(rotation) { let response = await fetch('/rotation/' + rotation); if(!response.ok) console.error(' HTTP - Error : ' + response.status);}</script>";
             char speedEventListenerJS[] = "<script>document.querySelector('.vertigo').addEventListener('input', function(e) { syncSpeed(e.target.value); });</script>";
             char rotationEventListenerJS[] = "<script>document.querySelector('.horizonto').addEventListener('input', function(e) { syncRotation(e.target.value); });</script>";
 
@@ -169,56 +139,49 @@ void loop()
 
         String clientRequests = client.readStringUntil('\r');
 
-        Serial.print(clientRequests);
-        int speedIndex = clientRequests.indexOf("/speed/");
+        Serial.print(clientRequests + "\n here we go");
+        int speedIndex = clientRequests.indexOf("/speed");
         int rotationIndex = clientRequests.indexOf("/rotation/");
-
-        Serial.println(speedIndex);
+        //Serial.println("\n");
+        //Serial.println(speedIndex);
 
         if (speedIndex != -1)
         {
-          String stringer = clientRequests.substring(speedIndex + 7);
-
-          for (int i = 0; i < stringer.length(); i++)
-          {
-            if (stringer[i] == '/')
-            {
-              stringer = stringer.substring(0, i);
-              break;
-            }
-          }
-
-          int speedValue = clientRequests.substring(speedIndex + 7, speedIndex + 7 + stringer.length()).toInt();
+          Serial.println("got in here");
+          String actualSpeedStringValue = clientRequests.substring(speedIndex + 7);
+          Serial.println(actualSpeedStringValue);
+          actualSpeedStringValue = actualSpeedStringValue.substring(0, actualSpeedStringValue.indexOf(" "));
+          Serial.println(actualSpeedStringValue);
+          int speedValue = actualSpeedStringValue.toInt();
 
           Serial.println(speedValue);
 
-          if (speedValue >= -255 && speedValue <= 255)
+          /*if (speedValue >= -255 && speedValue <= 255)
           {
-            speed = speedValue;
-            speedServo.write(speed);
-          }
+            speed = speedValue;*/
+          //speedServo.write(speedValue);
+          speedServo.write(91);
+          rotationServo.write(91);
+          //}
         }
+
         if (rotationIndex != -1)
         {
-          String stringer = clientRequests.substring(rotationIndex + 7);
+          
+          String stinger = clientRequests.substring(rotationIndex + 10);
 
-          for (int i = 0; i < stringer.length(); i++)
-          {
-            if (stringer[i] == '/')
-            {
-              stringer = stringer.substring(0, i);
-              break;
-            }
-          }
+          stinger = stinger.substring(0, stinger.indexOf(' '));
 
-          int rotationValue = currentLine.substring(rotationIndex + 7, rotationIndex + 7 + stringer.length()).toInt();
+          int rotationValue = stinger.toInt();
 
-          if (rotationValue >= -255 && rotationValue <= 255)
+          /*if (rotationValue >= -255 && rotationValue <= 255)
           {
             rotation = rotationValue;
             rotationServo.write(rotation);
-          }
+          }*/
+          rotationServo.write(rotationValue);
         }
+
       }
     }
     // close the connection:
@@ -226,17 +189,22 @@ void loop()
     Serial.println("client disconnected");
   }
 }
-void printWiFiStatus()
+void printWifiStatus()
 {
   // print the SSID of the network you're attached to:
   Serial.print("SSID: ");
   Serial.println(WiFi.SSID());
 
-  // print your WiFi shield's IP address:
+  // print your board's IP address:
   IPAddress ip = WiFi.localIP();
   Serial.print("IP Address: ");
   Serial.println(ip);
 
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
   // print where to go in a browser:
   Serial.print("To see this page in action, open a browser to http://");
   Serial.println(ip);
