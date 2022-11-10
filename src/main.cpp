@@ -40,6 +40,9 @@ int backDistance;
 
 void setup()
 {
+  // pinmode output 8 for speaker
+  pinMode(8, OUTPUT);
+
   //attach speedservo to port 9
   speedServo.attach(9);
   //attach rotationservo to port 11
@@ -93,6 +96,7 @@ void loop()
 
     speed = map(frontDistance, 0, 25, minSpeed, maxSpeed);
     Serial.println("going backwards");
+    digitalWrite(LED_BUILTIN, HIGH);
     Serial.println(speed);
     speedServo.write(speed);
 
@@ -102,9 +106,14 @@ void loop()
 
     speed = map(backDistance, 0, 25, minSpeed, maxSpeed);
     Serial.println("going forward");
+    digitalWrite(LED_BUILTIN, HIGH);
     Serial.println(speed);
     speedServo.write(speed);
+  } else {
+    digitalWrite(LED_BUILTIN, LOW);
   }
+
+  tone(8, 1000 / speed);
 
   WiFiClient client = server.available(); // listen for incoming clients
 
